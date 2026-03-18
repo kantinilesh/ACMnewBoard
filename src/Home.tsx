@@ -1,43 +1,43 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const BOARD = [
-  { name: "Chakshu Sharma",     role: "Chair",            pokemon: 6,   type1: "fire",    type2: "flying",  ability: "Leads with Blaze",       hp: 98 },
-  { name: "Krish Keshab Banik", role: "Vice Chair",       pokemon: 149, type1: "dragon",  type2: null,      ability: "Hyper Drive Strategy",   hp: 91 },
-  { name: "Dhriti Kothari Jain",role: "Treasurer",        pokemon: 36,  type1: "normal",  type2: "fairy",   ability: "Golden Ratio Finance",   hp: 85 },
-  { name: "Ishita Chaurasia",   role: "Secretary",        pokemon: 196, type1: "psychic", type2: null,      ability: "Mind Archive",           hp: 88 },
-  { name: "Salil Vaidya",       role: "Membership Chair", pokemon: 131, type1: "water",   type2: "ice",     ability: "Community Hydration",    hp: 87 },
-  { name: "Ojas Mutreja",       role: "Webmaster",        pokemon: 137, type1: "normal",  type2: null,      ability: "Digital Evolution",      hp: 84 },
+  { name: "Chakshu Sharma", role: "Chair", pokemon: 6, type1: "fire", type2: "flying", ability: "Leads with Blaze", hp: 98 },
+  { name: "Krishna Banik", role: "Vice Chair", pokemon: 149, type1: "dragon", type2: null, ability: "Hyper Drive Strategy", hp: 91 },
+  { name: "Dhriti Kothari Jain", role: "Treasurer", pokemon: 36, type1: "normal", type2: "fairy", ability: "Golden Ratio Finance", hp: 85 },
+  { name: "Ishita Chaurasia", role: "Secretary", pokemon: 196, type1: "psychic", type2: null, ability: "Mind Archive", hp: 88 },
+  { name: "Salil Vaidya", role: "Membership Chair", pokemon: 131, type1: "water", type2: "ice", ability: "Community Hydration", hp: 87 },
+  { name: "Ojas Mutreja", role: "Webmaster", pokemon: 137, type1: "normal", type2: null, ability: "Digital Evolution", hp: 84 },
 ];
 
 const CORE = [
-  { name: "Palak Maheshwari",   role: "Corporate Head",   pokemon: 130, type1: "water",   type2: "flying",  ability: "Corporate Typhoon",      hp: 90 },
-  { name: "Ishan Bakshi",       role: "Corporate Lead",   pokemon: 448, type1: "fighting",type2: "steel",   ability: "Iron Business Fist",     hp: 82 },
-  { name: "Jahnavi Kishore",    role: "Web Dev Head",     pokemon: 282, type1: "psychic", type2: "fairy",   ability: "Infinite Scroll Vision", hp: 86 },
-  { name: "Satyam Tiwari",      role: "Web Dev Lead",     pokemon: 474, type1: "normal",  type2: null,      ability: "Porygon Code Rush",      hp: 80 },
-  { name: "Grihika",            role: "Creatives Head",   pokemon: 350, type1: "water",   type2: null,      ability: "Glamour Beam",           hp: 83 },
-  { name: "Nikitha",            role: "Creatives Lead",   pokemon: 35,  type1: "normal",  type2: "fairy",   ability: "Cute Charm +",           hp: 78 },
-  { name: "Anurag Anand",       role: "R&D Head",         pokemon: 150, type1: "psychic", type2: null,      ability: "Genetic Algorithm",      hp: 95 },
-  { name: "Janani Hema",        role: "R&D Lead",         pokemon: 380, type1: "psychic", type2: "dragon",  ability: "Temporal Data Mining",   hp: 88 },
-  { name: "Rimil Bhattacharya", role: "R&D Lead",         pokemon: 381, type1: "psychic", type2: "dragon",  ability: "Spatial Data Shift",     hp: 88 },
+  { name: "Palak Maheshwari", role: "Corporate Head", pokemon: 130, type1: "water", type2: "flying", ability: "Corporate Typhoon", hp: 90 },
+  { name: "Ishan Bakshi", role: "Corporate Lead", pokemon: 448, type1: "fighting", type2: "steel", ability: "Iron Business Fist", hp: 82 },
+  { name: "Jahnavi Kishore", role: "Web Dev Head", pokemon: 282, type1: "psychic", type2: "fairy", ability: "Infinite Scroll Vision", hp: 86 },
+  { name: "Satyam Tiwari", role: "Web Dev Lead", pokemon: 474, type1: "normal", type2: null, ability: "Porygon Code Rush", hp: 80 },
+  { name: "Grihika", role: "Creatives Head", pokemon: 350, type1: "water", type2: null, ability: "Glamour Beam", hp: 83 },
+  { name: "Nikitha", role: "Creatives Lead", pokemon: 35, type1: "normal", type2: "fairy", ability: "Cute Charm +", hp: 78 },
+  { name: "Anurag Anand", role: "R&D Head", pokemon: 150, type1: "psychic", type2: null, ability: "Genetic Algorithm", hp: 95 },
+  { name: "Janani Hema", role: "R&D Lead", pokemon: 380, type1: "psychic", type2: "dragon", ability: "Temporal Data Mining", hp: 88 },
+  { name: "Rimil Bhattacharya", role: "R&D Lead", pokemon: 381, type1: "psychic", type2: "dragon", ability: "Spatial Data Shift", hp: 88 },
 ];
 
 // ─── Type system ──────────────────────────────────────────────────────────────
 
 const TYPE_COLORS: Record<string, { bg: string; text: string; glow: string; card: string }> = {
-  fire:     { bg: "#ff6b35", text: "#fff", glow: "#ff6b3577", card: "linear-gradient(160deg,#fff8f5,#fff3ee)" },
-  water:    { bg: "#3b82f6", text: "#fff", glow: "#3b82f677", card: "linear-gradient(160deg,#f5f9ff,#eef4ff)" },
-  grass:    { bg: "#16a34a", text: "#fff", glow: "#16a34a77", card: "linear-gradient(160deg,#f5fff7,#edfff1)" },
+  fire: { bg: "#ff6b35", text: "#fff", glow: "#ff6b3577", card: "linear-gradient(160deg,#fff8f5,#fff3ee)" },
+  water: { bg: "#3b82f6", text: "#fff", glow: "#3b82f677", card: "linear-gradient(160deg,#f5f9ff,#eef4ff)" },
+  grass: { bg: "#16a34a", text: "#fff", glow: "#16a34a77", card: "linear-gradient(160deg,#f5fff7,#edfff1)" },
   electric: { bg: "#ca8a04", text: "#fff", glow: "#ca8a0477", card: "linear-gradient(160deg,#fffdf0,#fffbdc)" },
-  psychic:  { bg: "#db2777", text: "#fff", glow: "#db277777", card: "linear-gradient(160deg,#fff5fa,#ffeef7)" },
-  dragon:   { bg: "#6d28d9", text: "#fff", glow: "#6d28d977", card: "linear-gradient(160deg,#faf5ff,#f4eeff)" },
-  normal:   { bg: "#78716c", text: "#fff", glow: "#78716c55", card: "linear-gradient(160deg,#fafaf9,#f5f5f4)" },
-  flying:   { bg: "#6366f1", text: "#fff", glow: "#6366f177", card: "linear-gradient(160deg,#f5f5ff,#eeefff)" },
+  psychic: { bg: "#db2777", text: "#fff", glow: "#db277777", card: "linear-gradient(160deg,#fff5fa,#ffeef7)" },
+  dragon: { bg: "#6d28d9", text: "#fff", glow: "#6d28d977", card: "linear-gradient(160deg,#faf5ff,#f4eeff)" },
+  normal: { bg: "#78716c", text: "#fff", glow: "#78716c55", card: "linear-gradient(160deg,#fafaf9,#f5f5f4)" },
+  flying: { bg: "#6366f1", text: "#fff", glow: "#6366f177", card: "linear-gradient(160deg,#f5f5ff,#eeefff)" },
   fighting: { bg: "#b91c1c", text: "#fff", glow: "#b91c1c77", card: "linear-gradient(160deg,#fff5f5,#ffeeee)" },
-  steel:    { bg: "#64748b", text: "#fff", glow: "#64748b55", card: "linear-gradient(160deg,#f8fafc,#f1f5f9)" },
-  ice:      { bg: "#0891b2", text: "#fff", glow: "#0891b277", card: "linear-gradient(160deg,#f0fdff,#e0f9ff)" },
-  fairy:    { bg: "#c026d3", text: "#fff", glow: "#c026d377", card: "linear-gradient(160deg,#fdf5ff,#faeeff)" },
+  steel: { bg: "#64748b", text: "#fff", glow: "#64748b55", card: "linear-gradient(160deg,#f8fafc,#f1f5f9)" },
+  ice: { bg: "#0891b2", text: "#fff", glow: "#0891b277", card: "linear-gradient(160deg,#f0fdff,#e0f9ff)" },
+  fairy: { bg: "#c026d3", text: "#fff", glow: "#c026d377", card: "linear-gradient(160deg,#fdf5ff,#faeeff)" },
 };
 
 // ─── Pokéball ─────────────────────────────────────────────────────────────────
@@ -46,11 +46,11 @@ function Pokeball({ size = 24, spinning = false }: { size?: number; spinning?: b
   return (
     <svg width={size} height={size} viewBox="0 0 100 100"
       style={{ animation: spinning ? "spinBall 1.8s linear infinite" : "none", flexShrink: 0 }}>
-      <circle cx="50" cy="50" r="47" fill="#e63946" stroke="#1a1a2e" strokeWidth="5"/>
-      <path d="M3 50 A47 47 0 0 1 97 50" fill="#f1faee"/>
-      <rect x="3" y="46" width="94" height="8" fill="#1a1a2e"/>
-      <circle cx="50" cy="50" r="14" fill="#f1faee" stroke="#1a1a2e" strokeWidth="5"/>
-      <circle cx="50" cy="50" r="6" fill="#fff" stroke="#1a1a2e" strokeWidth="2"/>
+      <circle cx="50" cy="50" r="47" fill="#e63946" stroke="#1a1a2e" strokeWidth="5" />
+      <path d="M3 50 A47 47 0 0 1 97 50" fill="#f1faee" />
+      <rect x="3" y="46" width="94" height="8" fill="#1a1a2e" />
+      <circle cx="50" cy="50" r="14" fill="#f1faee" stroke="#1a1a2e" strokeWidth="5" />
+      <circle cx="50" cy="50" r="6" fill="#fff" stroke="#1a1a2e" strokeWidth="2" />
     </svg>
   );
 }
@@ -63,8 +63,8 @@ function TypeBadge({ type }: { type: string }) {
     <span style={{
       background: c.bg, color: c.text,
       fontFamily: "'Press Start 2P', monospace",
-      fontSize: "0.7rem",
-      padding: "5px 11px", borderRadius: 4,
+      fontSize: "0.65rem",
+      padding: "4px 9px", borderRadius: 4,
       letterSpacing: "0.04em",
       textTransform: "uppercase" as const,
       border: "2px solid rgba(0,0,0,0.15)",
@@ -81,17 +81,199 @@ function TypeBadge({ type }: { type: string }) {
 function HPBar({ hp }: { hp: number }) {
   const color = hp > 60 ? "#16a34a" : hp > 30 ? "#ca8a04" : "#dc2626";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-      <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "0.72rem", color: "#374151", minWidth: 28 }}>HP</span>
-      <div style={{ flex: 1, height: 10, background: "#e5e7eb", borderRadius: 3, border: "1px solid #d1d5db", overflow: "hidden" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+      <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "0.65rem", color: "#374151", minWidth: 26 }}>HP</span>
+      <div style={{ flex: 1, height: 9, background: "#e5e7eb", borderRadius: 3, border: "1px solid #d1d5db", overflow: "hidden" }}>
         <div style={{ width: `${hp}%`, height: "100%", background: color, borderRadius: 3, transition: "width 1.2s ease" }} />
       </div>
-      <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "0.72rem", color: "#374151" }}>{hp}</span>
+      <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "0.65rem", color: "#374151" }}>{hp}</span>
     </div>
   );
 }
 
-// ─── Pokémon Card ─────────────────────────────────────────────────────────────
+// ─── Scratch Name Reveal ──────────────────────────────────────────────────────
+
+const BRUSH_RADIUS = 28;
+const REVEAL_THRESHOLD = 0.55; // 55% scratched = fully revealed
+
+function ScratchName({ name, typeColor }: { name: string; typeColor: { bg: string; glow: string } }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [isScratching, setIsScratching] = useState(false);
+  const initialized = useRef(false);
+  const scratchedPixels = useRef(0);
+  const totalPixels = useRef(0);
+
+  // Draw pixel-art static pattern on canvas (the "scratch" overlay)
+  const initCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || initialized.current) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const W = canvas.width;
+    const H = canvas.height;
+    totalPixels.current = W * H;
+
+    // Fill with pixelated pattern overlay
+    const pixelSize = 5;
+    for (let x = 0; x < W; x += pixelSize) {
+      for (let y = 0; y < H; y += pixelSize) {
+        const rand = Math.random();
+        // Mix of dark colors for pixel-art effect
+        if (rand < 0.3) ctx.fillStyle = "#1a1a2e";
+        else if (rand < 0.55) ctx.fillStyle = "#2d2d44";
+        else if (rand < 0.75) ctx.fillStyle = "#3a3a5c";
+        else if (rand < 0.88) ctx.fillStyle = "#e63946";
+        else ctx.fillStyle = "#d4a63a";
+        ctx.fillRect(x, y, pixelSize, pixelSize);
+      }
+    }
+
+    // "???" hint text
+    ctx.font = "bold 14px 'Press Start 2P', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.textAlign = "center";
+    ctx.fillText("???", W / 2, H / 2 + 5);
+
+    initialized.current = true;
+    scratchedPixels.current = 0;
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    // Set canvas display size & pixel size
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width || 220;
+    canvas.height = rect.height || 32;
+    initialized.current = false;
+    initCanvas();
+  }, [initCanvas]);
+
+  const scratch = useCallback((clientX: number, clientY: number) => {
+    if (revealed) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+    // Erase a circle using destination-out composite
+    ctx.globalCompositeOperation = "destination-out";
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, BRUSH_RADIUS);
+    gradient.addColorStop(0, "rgba(0,0,0,1)");
+    gradient.addColorStop(0.6, "rgba(0,0,0,0.9)");
+    gradient.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, BRUSH_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+
+    // Check reveal percentage via sampling
+    const sampleStep = 4;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let transparent = 0;
+    let total = 0;
+    for (let i = 3; i < imageData.data.length; i += 4 * sampleStep) {
+      total++;
+      if (imageData.data[i] < 128) transparent++;
+    }
+    const ratio = transparent / total;
+    if (ratio >= REVEAL_THRESHOLD) {
+      setRevealed(true);
+    }
+  }, [revealed]);
+
+  // Mouse handlers
+  const onMouseDown = (e: React.MouseEvent) => {
+    setIsScratching(true);
+    scratch(e.clientX, e.clientY);
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!isScratching) return;
+    scratch(e.clientX, e.clientY);
+  };
+  const onMouseUp = () => setIsScratching(false);
+
+  // Touch handlers
+  const onTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    setIsScratching(true);
+    const t = e.touches[0];
+    scratch(t.clientX, t.clientY);
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (!isScratching) return;
+    const t = e.touches[0];
+    scratch(t.clientX, t.clientY);
+  };
+  const onTouchEnd = () => setIsScratching(false);
+
+  return (
+    <div style={{ position: "relative", height: 34, userSelect: "none" }}>
+      {/* Actual name underneath */}
+      <div style={{
+        position: "absolute", inset: 0,
+        display: "flex", alignItems: "center",
+        fontFamily: "'Press Start 2P', monospace",
+        fontSize: "0.72rem",
+        color: "#1a1a2e",
+        lineHeight: 1.6,
+        overflow: "hidden",
+        padding: "0 2px",
+        transition: revealed ? "filter 0.4s ease" : "none",
+        filter: revealed ? "none" : "blur(0px)", // name shows through canvas holes
+      }}>
+        {name}
+      </div>
+
+      {/* Canvas overlay — hidden when fully revealed */}
+      {!revealed && (
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: "absolute", inset: 0,
+            width: "100%", height: "100%",
+            borderRadius: 4,
+            cursor: isScratching ? "crosshair" : "cell",
+            touchAction: "none",
+            border: `1px dashed ${typeColor.bg}55`,
+            boxShadow: `0 0 8px ${typeColor.glow}`,
+          }}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+          onMouseLeave={onMouseUp}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        />
+      )}
+
+      {/* Revealed flash */}
+      {revealed && (
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          borderRadius: 4,
+          animation: "revealFlash 0.5s ease forwards",
+          background: `radial-gradient(ellipse at center, ${typeColor.bg}33 0%, transparent 70%)`,
+        }} />
+      )}
+    </div>
+  );
+}
+
+// ─── Pokémon Card (fixed size) ────────────────────────────────────────────────
+
+// Fixed card dimensions
+const CARD_WIDTH = 260;
+const CARD_HEIGHT = 420;
 
 function PokeCard({ member, index }: { member: (typeof BOARD)[0]; index: number }) {
   const [hovered, setHovered] = useState(false);
@@ -104,26 +286,33 @@ function PokeCard({ member, index }: { member: (typeof BOARD)[0]; index: number 
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
+        margin: "0 auto",
         animationDelay: `${index * 70}ms`,
         animationFillMode: "both",
         animation: "cardReveal 0.65s cubic-bezier(0.34,1.56,0.64,1) both",
+        flexShrink: 0,
       }}
     >
       <div style={{
         background: hovered ? t1.card : "linear-gradient(160deg,#fffdf0,#fef8e1)",
         border: `3px solid ${hovered ? t1.bg : "#d4a63a"}`,
         borderRadius: 18,
-        padding: "1rem 1rem 1rem",
+        padding: "0.85rem 0.9rem",
         boxShadow: hovered
           ? `0 20px 50px rgba(0,0,0,0.32), 0 0 0 1px ${t1.bg}44, 0 0 28px ${t1.glow}, 5px 5px 0 ${t1.bg}55`
           : "4px 4px 0 #d4a63a, 0 6px 24px rgba(0,0,0,0.18)",
         transform: hovered ? "translateY(-8px) scale(1.03) rotate(-0.5deg)" : "none",
         transition: "all 0.28s cubic-bezier(0.34,1.56,0.64,1)",
-        maxWidth: 260,
-        margin: "0 auto",
+        width: "100%",
+        height: "100%",
         position: "relative" as const,
         overflow: "hidden",
         cursor: "default",
+        display: "flex",
+        flexDirection: "column" as const,
+        boxSizing: "border-box" as const,
       }}>
 
         {/* Holographic shimmer */}
@@ -137,38 +326,39 @@ function PokeCard({ member, index }: { member: (typeof BOARD)[0]; index: number 
           }} />
         )}
 
-        {/* Name + HP row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.45rem", position: "relative", zIndex: 1 }}>
-          <div style={{
-            fontFamily: "'Press Start 2P', monospace",
-            fontSize: "0.75rem",
-            color: "#1a1a2e", lineHeight: 1.8, maxWidth: "62%",
-          }}>
-            {member.name}
+        {/* Row 1: Scratch name + HP */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem", position: "relative", zIndex: 1, gap: "0.4rem" }}>
+          {/* Scratch reveal name — takes remaining space */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <ScratchName name={member.name} typeColor={t1} />
           </div>
           <div style={{
             fontFamily: "'Press Start 2P', monospace",
-            fontSize: "0.82rem",
-            color: t1.bg, textShadow: `0 0 10px ${t1.glow}`,
+            fontSize: "0.75rem",
+            color: t1.bg,
+            textShadow: `0 0 10px ${t1.glow}`,
             whiteSpace: "nowrap" as const,
+            flexShrink: 0,
           }}>
             {member.hp} HP
           </div>
         </div>
 
-        {/* Type badges */}
-        <div style={{ display: "flex", gap: "0.35rem", marginBottom: "0.55rem", flexWrap: "wrap" as const, position: "relative", zIndex: 1 }}>
+        {/* Row 2: Type badges */}
+        <div style={{ display: "flex", gap: "0.3rem", marginBottom: "0.45rem", flexWrap: "wrap" as const, position: "relative", zIndex: 1 }}>
           <TypeBadge type={member.type1} />
           {member.type2 && <TypeBadge type={member.type2} />}
         </div>
 
-        {/* Sprite */}
+        {/* Row 3: Sprite — fixed height */}
         <div style={{
           background: `linear-gradient(135deg, ${t1.bg}0f, ${t1.bg}22)`,
           border: `2px solid ${t1.bg}33`,
-          borderRadius: 10, height: 140,
+          borderRadius: 10,
+          height: 128,
+          flexShrink: 0,
           display: "flex", alignItems: "center", justifyContent: "center",
-          marginBottom: "0.6rem", position: "relative", overflow: "hidden", zIndex: 1,
+          marginBottom: "0.5rem", position: "relative", overflow: "hidden", zIndex: 1,
         }}>
           <div style={{ position: "absolute", bottom: -20, right: -20, opacity: 0.06 }}>
             <Pokeball size={100} />
@@ -181,7 +371,7 @@ function PokeCard({ member, index }: { member: (typeof BOARD)[0]; index: number 
             alt={`Pokémon ${member.pokemon}`}
             onLoad={() => setImgLoaded(true)}
             style={{
-              maxHeight: 125, maxWidth: 130, objectFit: "contain",
+              maxHeight: 115, maxWidth: 120, objectFit: "contain",
               display: imgLoaded ? "block" : "none",
               filter: `drop-shadow(0 4px 14px ${t1.glow})`,
               animation: hovered ? "pokeBounce 0.55s ease-in-out infinite alternate" : "none",
@@ -190,34 +380,53 @@ function PokeCard({ member, index }: { member: (typeof BOARD)[0]; index: number 
           />
         </div>
 
-        {/* HP bar */}
-        <div style={{ marginBottom: "0.55rem", position: "relative", zIndex: 1 }}>
+        {/* Row 4: HP bar */}
+        <div style={{ marginBottom: "0.45rem", position: "relative", zIndex: 1 }}>
           <HPBar hp={member.hp} />
         </div>
 
-        {/* Role */}
+        {/* Row 5: Role — fixed height */}
         <div style={{
           fontFamily: "'Press Start 2P', monospace",
-          fontSize: "0.68rem",
-          color: "#6b7280", textAlign: "center" as const,
-          marginBottom: "0.55rem", letterSpacing: "0.04em",
+          fontSize: "0.6rem",
+          color: "#6b7280",
+          textAlign: "center" as const,
+          marginBottom: "0.4rem",
+          letterSpacing: "0.04em",
           position: "relative", zIndex: 1,
+          height: 20,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          overflow: "hidden",
         }}>
           {member.role}
         </div>
 
-        {/* Ability */}
+        {/* Row 6: Ability — fills remaining space */}
         <div style={{
           background: "rgba(0,0,0,0.06)", borderRadius: 7,
-          padding: "0.5rem 0.65rem", border: "1px solid rgba(0,0,0,0.08)",
+          padding: "0.4rem 0.55rem",
+          border: "1px solid rgba(0,0,0,0.08)",
           position: "relative", zIndex: 1,
+          flex: 1,
+          display: "flex", flexDirection: "column" as const, justifyContent: "center",
         }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "0.55rem", color: "#9ca3af", marginBottom: 5 }}>ABILITY</div>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "0.65rem", color: "#1a1a2e", lineHeight: 1.8 }}>{member.ability}</div>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "0.5rem", color: "#9ca3af", marginBottom: 4 }}>ABILITY</div>
+          <div style={{
+            fontFamily: "'Press Start 2P', monospace",
+            fontSize: "0.58rem",
+            color: "#1a1a2e",
+            lineHeight: 1.8,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical" as const,
+          }}>
+            {member.ability}
+          </div>
         </div>
 
         {/* Pokédex number */}
-        <div style={{ position: "absolute", bottom: 8, right: 10, fontFamily: "'Press Start 2P', monospace", fontSize: "0.52rem", color: `${t1.bg}66`, zIndex: 1 }}>
+        <div style={{ position: "absolute", bottom: 7, right: 9, fontFamily: "'Press Start 2P', monospace", fontSize: "0.5rem", color: `${t1.bg}66`, zIndex: 1 }}>
           #{String(member.pokemon).padStart(3, "0")}
         </div>
       </div>
@@ -291,8 +500,8 @@ function LoadingScreen({ onDone }: { onDone: () => void }) {
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "repeating-linear-gradient(0deg,rgba(0,0,0,0.18) 0,rgba(0,0,0,0.18) 1px,transparent 1px,transparent 3px)" }} />
 
       {[...Array(7)].map((_, i) => (
-        <div key={i} style={{ position: "absolute", top: `${8+(i*14)%82}%`, left: `${6+(i*19)%88}%`, opacity: 0.05, animation: `floatBall ${5+i*0.8}s ease-in-out infinite alternate`, animationDelay: `${i*0.35}s` }}>
-          <Pokeball size={35+i*15} />
+        <div key={i} style={{ position: "absolute", top: `${8 + (i * 14) % 82}%`, left: `${6 + (i * 19) % 88}%`, opacity: 0.05, animation: `floatBall ${5 + i * 0.8}s ease-in-out infinite alternate`, animationDelay: `${i * 0.35}s` }}>
+          <Pokeball size={35 + i * 15} />
         </div>
       ))}
 
@@ -340,20 +549,20 @@ function Background() {
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(155deg,#1a1a2e 0%,#16213e 45%,#0f3460 100%)" }} />
       <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(250,204,21,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(250,204,21,0.035) 1px,transparent 1px)", backgroundSize: "32px 32px" }} />
       {[
-        { s:90,  t:"7%",  l:"4%",  o:0.055, d:7  },
-        { s:55,  t:"18%", l:"88%", o:0.045, d:9  },
-        { s:130, t:"58%", l:"1%",  o:0.04,  d:11 },
-        { s:65,  t:"78%", l:"91%", o:0.055, d:8  },
-        { s:45,  t:"43%", l:"94%", o:0.045, d:6  },
-        { s:100, t:"4%",  l:"54%", o:0.035, d:10 },
-      ].map((b,i)=>(
-        <div key={i} style={{ position:"absolute", top:b.t, left:b.l, opacity:b.o, animation:`floatBall ${b.d}s ease-in-out infinite alternate`, animationDelay:`${i*0.7}s` }}>
+        { s: 90, t: "7%", l: "4%", o: 0.055, d: 7 },
+        { s: 55, t: "18%", l: "88%", o: 0.045, d: 9 },
+        { s: 130, t: "58%", l: "1%", o: 0.04, d: 11 },
+        { s: 65, t: "78%", l: "91%", o: 0.055, d: 8 },
+        { s: 45, t: "43%", l: "94%", o: 0.045, d: 6 },
+        { s: 100, t: "4%", l: "54%", o: 0.035, d: 10 },
+      ].map((b, i) => (
+        <div key={i} style={{ position: "absolute", top: b.t, left: b.l, opacity: b.o, animation: `floatBall ${b.d}s ease-in-out infinite alternate`, animationDelay: `${i * 0.7}s` }}>
           <Pokeball size={b.s} />
         </div>
       ))}
-      <div style={{ position:"absolute", top:"8%", left:"18%", width:450, height:450, borderRadius:"50%", background:"radial-gradient(circle,rgba(230,57,70,0.1) 0%,transparent 70%)", filter:"blur(45px)" }} />
-      <div style={{ position:"absolute", bottom:"12%", right:"12%", width:520, height:520, borderRadius:"50%", background:"radial-gradient(circle,rgba(250,204,21,0.07) 0%,transparent 70%)", filter:"blur(55px)" }} />
-      <div style={{ position:"absolute", top:"50%", left:"45%", width:380, height:380, borderRadius:"50%", background:"radial-gradient(circle,rgba(109,40,217,0.07) 0%,transparent 70%)", filter:"blur(45px)" }} />
+      <div style={{ position: "absolute", top: "8%", left: "18%", width: 450, height: 450, borderRadius: "50%", background: "radial-gradient(circle,rgba(230,57,70,0.1) 0%,transparent 70%)", filter: "blur(45px)" }} />
+      <div style={{ position: "absolute", bottom: "12%", right: "12%", width: 520, height: 520, borderRadius: "50%", background: "radial-gradient(circle,rgba(250,204,21,0.07) 0%,transparent 70%)", filter: "blur(55px)" }} />
+      <div style={{ position: "absolute", top: "50%", left: "45%", width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle,rgba(109,40,217,0.07) 0%,transparent 70%)", filter: "blur(45px)" }} />
     </div>
   );
 }
@@ -373,7 +582,7 @@ export default function Home() {
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         html{scroll-behavior:smooth}
         body{background:#1a1a2e;overflow-x:hidden}
-
+ 
         @keyframes cardReveal { from{opacity:0;transform:translateY(38px) scale(0.9) rotate(-1.5deg)} to{opacity:1;transform:none} }
         @keyframes shimmerSlide { 0%{background-position:200% center} 100%{background-position:-200% center} }
         @keyframes pokeBounce { from{transform:translateY(0) scale(1)} to{transform:translateY(-7px) scale(1.06)} }
@@ -383,6 +592,7 @@ export default function Home() {
         @keyframes heroFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
         @keyframes spinBall { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes revealFlash { 0%{opacity:0.7} 100%{opacity:0} }
         @keyframes rainbowBorder {
           0%{border-color:#e63946} 20%{border-color:#facc15} 40%{border-color:#22c55e}
           60%{border-color:#3b82f6} 80%{border-color:#7c3aed} 100%{border-color:#e63946}
@@ -390,6 +600,14 @@ export default function Home() {
         ::-webkit-scrollbar{width:5px}
         ::-webkit-scrollbar-track{background:#1a1a2e}
         ::-webkit-scrollbar-thumb{background:#e63946;border-radius:3px}
+ 
+        /* Fixed card grid: always same column width */
+        .card-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 260px));
+          gap: 1.5rem;
+          justify-content: center;
+        }
       `}</style>
 
       {!loaded && <LoadingScreen onDone={() => setLoaded(true)} />}
@@ -399,7 +617,6 @@ export default function Home() {
 
         {/* ── Hero ── */}
         <header style={{ textAlign: "center", padding: "5.5rem 1.5rem 4rem" }}>
-
           <div style={{
             fontFamily: "'Press Start 2P', monospace",
             fontSize: "clamp(0.6rem, 1.5vw, 0.8rem)",
@@ -429,10 +646,24 @@ export default function Home() {
             KNOWLEDGE DISCOVERY &amp; DATA MINING
           </div>
 
+          {/* Scratch hint */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: "0.6rem",
+            background: "rgba(250,204,21,0.1)", border: "2px dashed #facc1566",
+            borderRadius: 8, padding: "0.55rem 1.2rem", marginBottom: "2rem",
+            animation: "fadeUp 0.5s 0.45s both",
+          }}>
+            <span style={{ fontSize: "1.1rem" }}>✦</span>
+            <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "clamp(0.42rem, 1vw, 0.58rem)", color: "#facc15", letterSpacing: "0.08em" }}>
+              SCRATCH THE NAME AREA TO REVEAL MEMBERS!
+            </span>
+            <span style={{ fontSize: "1.1rem" }}>✦</span>
+          </div>
+
           {/* Legendary birds */}
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", gap: "clamp(0.8rem,3vw,3rem)", animation: "fadeUp 0.5s 0.5s both", marginBottom: "2.5rem" }}>
             {[
-              { id: 144, label: "Research",   delay: 0   },
+              { id: 144, label: "Research", delay: 0 },
               { id: 146, label: "Innovation", delay: 0.4 },
               { id: 145, label: "Technology", delay: 0.8 },
             ].map(b => (
@@ -454,8 +685,8 @@ export default function Home() {
 
         {/* ── Board ── */}
         <section style={{ padding: "0 clamp(1.5rem,4vw,3.5rem) 5rem", maxWidth: 1400, margin: "0 auto" }}>
-          <SectionHeader title="★ BOARD MEMBERS ★" sub="THE ELITE FOUR OF SIGKDD" />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: "1.5rem" }}>
+          <SectionHeader title="★ BOARD MEMBERS ★" />
+          <div className="card-grid">
             {BOARD.map((m, i) => <PokeCard key={m.name} member={m} index={i} />)}
           </div>
         </section>
@@ -479,7 +710,7 @@ export default function Home() {
         {/* ── Core ── */}
         <section style={{ padding: "0 clamp(1.5rem,4vw,3.5rem) 7rem", maxWidth: 1600, margin: "0 auto" }}>
           <SectionHeader title="★ CORE MEMBERS ★" sub="CHOOSE YOUR STARTER TEAM" />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(215px,1fr))", gap: "1.4rem" }}>
+          <div className="card-grid">
             {CORE.map((m, i) => <PokeCard key={m.name} member={m} index={i} />)}
           </div>
         </section>
