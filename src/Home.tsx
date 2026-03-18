@@ -176,8 +176,8 @@ function useLoaderAudio() {
 
 const BOARD = [
   { name: "Chakshu Sharma", role: "Chair", pokemon: 6, type1: "fire", type2: "flying", ability: "Leads with Blaze", hp: 98 },
-  { name: "Krishna Keshab Banik", role: "Vice Chair", pokemon: 149, type1: "dragon", type2: null, ability: "Hyper Drive Strategy", hp: 91 },
-  { name: "Dhriti Kothari Jain", role: "Treasurer", pokemon: 36, type1: "normal", type2: "fairy", ability: "Golden Ratio Finance", hp: 85 },
+  { name: "Krishna Banik", role: "Vice Chair", pokemon: 149, type1: "dragon", type2: null, ability: "Hyper Drive Strategy", hp: 91 },
+  { name: "Dhriti Jain", role: "Treasurer", pokemon: 36, type1: "normal", type2: "fairy", ability: "Golden Ratio Finance", hp: 85 },
   { name: "Ishita Chaurasia", role: "Secretary", pokemon: 196, type1: "psychic", type2: null, ability: "Mind Archive", hp: 88 },
   { name: "Salil Vaidya", role: "Membership Chair", pokemon: 131, type1: "water", type2: "ice", ability: "Community Hydration", hp: 87 },
   { name: "Ojas Mutreja", role: "Webmaster", pokemon: 137, type1: "normal", type2: null, ability: "Digital Evolution", hp: 84 },
