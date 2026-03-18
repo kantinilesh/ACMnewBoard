@@ -1,10 +1,182 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
+
+// ─── useLoaderAudio ───────────────────────────────────────────────────────────
+//
+// DESIGN:
+//   • AudioContext is created ONLY inside startAudio(), which is called from a
+//     guaranteed user-gesture handler (the "PRESS START" splash click/tap).
+//     This satisfies autoplay policy on ALL browsers including iOS Safari.
+//   • A lookahead scheduler (setInterval every 80 ms, schedules 300 ms ahead)
+//     drives a truly infinite arpeggio loop — it never runs out of notes.
+//   • stop() is NEVER called by the page itself; music runs forever.
+//     Only the mute toggle (setMute) silences/restores volume.
+//   • stop() exists for emergency cleanup (unmount).
+
+type Note = [number, number, number, number, OscillatorType];
+
+// One-shot fanfare: chromatic run → chord stab → high sting
+const FANFARE: Note[] = [
+  [185, 0.00, 0.07, 0.18, "square"],
+  [220, 0.07, 0.07, 0.18, "square"],
+  [277, 0.14, 0.07, 0.18, "square"],
+  [370, 0.21, 0.14, 0.20, "square"],
+  [440, 0.21, 0.14, 0.18, "square"],
+  [554, 0.21, 0.14, 0.16, "square"],
+  [370, 0.38, 0.28, 0.20, "square"],
+  [494, 0.38, 0.28, 0.18, "square"],
+  [587, 0.38, 0.28, 0.16, "square"],
+  [880, 0.70, 0.10, 0.15, "square"],
+  [988, 0.80, 0.10, 0.15, "square"],
+  [1109, 0.90, 0.16, 0.14, "square"],
+];
+const FANFARE_DURATION = 1.1;
+
+// Infinite battle arpeggio — 32 steps × 0.08 s = 2.56 s per loop
+const ARP_STEP = 0.08;
+const ARP_PATTERN = [
+  220, 277, 330, 415, 370, 330, 277, 220,
+  185, 220, 277, 330, 277, 220, 185, 165,
+  220, 294, 370, 440, 415, 370, 294, 220,
+  185, 247, 330, 392, 370, 330, 247, 220,
+];
+
+function useLoaderAudio() {
+  const ctxRef = useRef<AudioContext | null>(null);
+  const masterRef = useRef<GainNode | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const nextRef = useRef(0);   // next note time on AudioContext clock
+  const phaseRef = useRef(0);   // index into ARP_PATTERN (wraps mod length)
+  const stoppedRef = useRef(true);
+  const fadeTRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleNote = (
+    ctx: AudioContext, master: GainNode,
+    freq: number, t: number, dur: number, vol: number, type: OscillatorType
+  ) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(vol, t + 0.010);
+    gain.gain.setValueAtTime(vol, t + dur * 0.55);
+    gain.gain.linearRampToValueAtTime(0, t + dur);
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  };
+
+  // Lookahead tick — runs every 80 ms, schedules notes 300 ms ahead
+  const tick = useCallback(() => {
+    const ctx = ctxRef.current;
+    const master = masterRef.current;
+    if (!ctx || !master || stoppedRef.current) return;
+    const AHEAD = 0.30;
+    while (nextRef.current < ctx.currentTime + AHEAD) {
+      const t = nextRef.current;
+      const freq = ARP_PATTERN[phaseRef.current % ARP_PATTERN.length];
+      scheduleNote(ctx, master, freq, t, ARP_STEP * 0.75, 0.15, "square");
+      scheduleNote(ctx, master, freq / 2, t, ARP_STEP * 0.60, 0.07, "triangle");
+      phaseRef.current++;
+      nextRef.current += ARP_STEP;
+    }
+  }, []);
+
+  // startAudio — MUST be called from inside a user-gesture handler
+  const startAudio = useCallback(() => {
+    if (!stoppedRef.current) return; // already running
+    try {
+      stoppedRef.current = false;
+      phaseRef.current = 0;
+
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      ctx.resume(); // wake up suspended state (Safari quirk)
+
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0.50, ctx.currentTime);
+      master.connect(ctx.destination);
+
+      ctxRef.current = ctx;
+      masterRef.current = master;
+
+      const t0 = ctx.currentTime + 0.02;
+
+      // Play fanfare once
+      FANFARE.forEach(([freq, offset, dur, vol, type]) =>
+        scheduleNote(ctx, master, freq, t0 + offset, dur, vol, type)
+      );
+
+      // Noise-crack accent at very start
+      const nLen = (ctx.sampleRate * 0.045) | 0;
+      const nBuf = ctx.createBuffer(1, nLen, ctx.sampleRate);
+      const nd = nBuf.getChannelData(0);
+      for (let i = 0; i < nLen; i++) nd[i] = (Math.random() * 2 - 1) * 0.35;
+      const ns = ctx.createBufferSource();
+      ns.buffer = nBuf;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.45, t0);
+      ng.gain.linearRampToValueAtTime(0, t0 + 0.045);
+      ns.connect(ng); ng.connect(master);
+      ns.start(t0);
+
+      // Arpeggio starts after fanfare
+      nextRef.current = t0 + FANFARE_DURATION;
+      tick();
+      timerRef.current = setInterval(tick, 80);
+
+    } catch (e) {
+      console.warn("PokeAudio start failed:", e);
+      stoppedRef.current = true;
+    }
+  }, [tick]);
+
+  // stopAudio — fade out and close (for cleanup only)
+  const stopAudio = useCallback(() => {
+    stoppedRef.current = true;
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    const ctx = ctxRef.current;
+    const master = masterRef.current;
+    if (!ctx || !master) return;
+    const now = ctx.currentTime;
+    master.gain.cancelScheduledValues(now);
+    master.gain.setValueAtTime(master.gain.value, now);
+    master.gain.linearRampToValueAtTime(0, now + 0.7);
+    fadeTRef.current = setTimeout(() => {
+      try { ctx.close(); } catch (_) { }
+      ctxRef.current = null; masterRef.current = null;
+    }, 800);
+  }, []);
+
+  // setMute — toggle volume without stopping the scheduler
+  const setMute = useCallback((muted: boolean) => {
+    const master = masterRef.current;
+    const ctx = ctxRef.current;
+    if (!master || !ctx) return;
+    const now = ctx.currentTime;
+    master.gain.cancelScheduledValues(now);
+    master.gain.setValueAtTime(master.gain.value, now);
+    master.gain.linearRampToValueAtTime(muted ? 0 : 0.50, now + 0.18);
+  }, []);
+
+  // Cleanup on component unmount
+  useEffect(() => () => {
+    stoppedRef.current = true;
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (fadeTRef.current) clearTimeout(fadeTRef.current);
+    try { ctxRef.current?.close(); } catch (_) { }
+  }, []);
+
+  return { startAudio, stopAudio, setMute };
+}
+
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const BOARD = [
   { name: "Chakshu Sharma", role: "Chair", pokemon: 6, type1: "fire", type2: "flying", ability: "Leads with Blaze", hp: 98 },
-  { name: "Krishna Banik", role: "Vice Chair", pokemon: 149, type1: "dragon", type2: null, ability: "Hyper Drive Strategy", hp: 91 },
+  { name: "Krishna Keshab Banik", role: "Vice Chair", pokemon: 149, type1: "dragon", type2: null, ability: "Hyper Drive Strategy", hp: 91 },
   { name: "Dhriti Kothari Jain", role: "Treasurer", pokemon: 36, type1: "normal", type2: "fairy", ability: "Golden Ratio Finance", hp: 85 },
   { name: "Ishita Chaurasia", role: "Secretary", pokemon: 196, type1: "psychic", type2: null, ability: "Mind Archive", hp: 88 },
   { name: "Salil Vaidya", role: "Membership Chair", pokemon: 131, type1: "water", type2: "ice", ability: "Community Hydration", hp: 87 },
@@ -468,7 +640,7 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
 
 // ─── Loading Screen ───────────────────────────────────────────────────────────
 
-function LoadingScreen({ onDone }: { onDone: () => void }) {
+function LoadingScreen({ onDone, onAudioStop }: { onDone: () => void; onAudioStop: () => void }) {
   const [step, setStep] = useState(0);
   const [dots, setDots] = useState("");
   const [fadeOut, setFadeOut] = useState(false);
@@ -487,7 +659,11 @@ function LoadingScreen({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     const sInt = setInterval(() => setStep(s => Math.min(s + 1, msgs.length - 1)), 500);
     const dInt = setInterval(() => setDots(d => d.length >= 3 ? "" : d + "."), 380);
-    const exit = setTimeout(() => { setFadeOut(true); setTimeout(onDone, 550); }, 4700);
+    const exit = setTimeout(() => {
+      setFadeOut(true);
+      onAudioStop();          // begin smooth audio fade as loader fades out
+      setTimeout(onDone, 550);
+    }, 4700);
     return () => { clearInterval(sInt); clearInterval(dInt); clearTimeout(exit); };
   }, []);
 
@@ -567,13 +743,50 @@ function Background() {
   );
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+// CSS clamp helper for inline styles (avoids duplicating the string)
+function clampSize(min: number, max: number) {
+  return `clamp(${min}px, ${Math.round((min + max) / 2 / 5)}vw, ${max}px)`;
+}
+
 // ─── Root ─────────────────────────────────────────────────────────────────────
+//
+// Audio strategy:
+//   1. A "PRESS START" splash is ALWAYS shown first — this gives us a guaranteed
+//      user gesture on every platform (desktop + mobile), satisfying autoplay policy.
+//   2. On that tap we call startAudio() — music begins immediately and loops forever.
+//   3. The LoadingScreen then runs. When it finishes, audio keeps playing; we never
+//      call stop() so the battle music continues across the whole page.
+//   4. A mute toggle (🔊/🔇) in the corner lets users silence it anytime.
 
 export default function Home() {
-  const [loaded, setLoaded] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [phase, setPhase] = useState<"splash" | "loading" | "main">("splash");
+  // splash  → big PRESS START screen (provides user gesture for audio)
+  // loading → LoadingScreen (audio already running)
+  // main    → full page visible
 
-  useEffect(() => { if (loaded) setTimeout(() => setVisible(true), 60); }, [loaded]);
+  const [muted, setMuted] = useState(false);
+  const { startAudio, stopAudio, setMute } = useLoaderAudio();
+
+  // Called when user presses PRESS START
+  const handleSplashClick = () => {
+    startAudio();          // guaranteed gesture → AudioContext starts immediately
+    setPhase("loading");
+  };
+
+  // Called when LoadingScreen finishes
+  const handleLoadDone = () => {
+    setPhase("main");
+  };
+
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    setMute(next);
+  };
+
+  const visible = phase === "main";
 
   return (
     <>
@@ -597,6 +810,9 @@ export default function Home() {
           0%{border-color:#e63946} 20%{border-color:#facc15} 40%{border-color:#22c55e}
           60%{border-color:#3b82f6} 80%{border-color:#7c3aed} 100%{border-color:#e63946}
         }
+        @keyframes splashBlink { 0%,100%{opacity:1} 49%{opacity:1} 50%,99%{opacity:0} }
+        @keyframes splashPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
+ 
         ::-webkit-scrollbar{width:5px}
         ::-webkit-scrollbar-track{background:#1a1a2e}
         ::-webkit-scrollbar-thumb{background:#e63946;border-radius:3px}
@@ -610,7 +826,105 @@ export default function Home() {
         }
       `}</style>
 
-      {!loaded && <LoadingScreen onDone={() => setLoaded(true)} />}
+      {/* ── PRESS START splash ── */}
+      {phase === "splash" && (
+        <div
+          onClick={handleSplashClick}
+          style={{
+            position: "fixed", inset: 0, zIndex: 99999,
+            background: "#1a1a2e",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            cursor: "pointer", userSelect: "none",
+          }}
+        >
+          {/* CRT scanlines */}
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            backgroundImage: "repeating-linear-gradient(0deg,rgba(0,0,0,0.22) 0,rgba(0,0,0,0.22) 1px,transparent 1px,transparent 3px)"
+          }} />
+          {/* Grid */}
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            backgroundImage: "linear-gradient(rgba(250,204,21,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(250,204,21,0.03) 1px,transparent 1px)",
+            backgroundSize: "32px 32px"
+          }} />
+
+          {/* Floating pokeballs */}
+          {[...Array(5)].map((_, i) => (
+            <div key={i} style={{
+              position: "absolute", top: `${12 + (i * 18) % 76}%`, left: `${8 + (i * 22) % 84}%`,
+              opacity: 0.06, animation: `floatBall ${6 + i}s ease-in-out infinite alternate`, animationDelay: `${i * 0.5}s`
+            }}>
+              <Pokeball size={40 + i * 20} />
+            </div>
+          ))}
+
+          <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "2rem" }}>
+            {/* Logo */}
+            <div style={{ marginBottom: "2rem", animation: "splashPulse 2s ease-in-out infinite" }}>
+              <div style={{
+                fontFamily: "'Press Start 2P',monospace", fontSize: "clamp(0.55rem,1.4vw,0.75rem)",
+                color: "#facc15", letterSpacing: "0.22em", marginBottom: "0.8rem", textShadow: "0 0 14px #facc1566"
+              }}>
+                ★ ACM STUDENT CHAPTER ★
+              </div>
+              <div style={{
+                fontFamily: "'Press Start 2P',monospace", fontSize: "clamp(2.5rem,9vw,6rem)",
+                lineHeight: 1.05, textShadow: "4px 4px 0 #e63946, 8px 8px 0 rgba(230,57,70,0.22)"
+              }}>
+                <span style={{ color: "#e63946" }}>SIG</span><span style={{ color: "#facc15" }}>KDD</span>
+              </div>
+            </div>
+
+            {/* Pikachu */}
+            <div style={{ marginBottom: "2rem", animation: "heroFloat 1.8s ease-in-out infinite" }}>
+              <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png"
+                alt="Pikachu" style={{
+                  width: clampSize(100, 130), height: clampSize(100, 130), objectFit: "contain",
+                  filter: "drop-shadow(0 0 24px #ca8a04bb)"
+                }} />
+            </div>
+
+            {/* Press Start */}
+            <div style={{
+              fontFamily: "'Press Start 2P',monospace", fontSize: "clamp(0.65rem,2vw,0.95rem)",
+              color: "#fff", letterSpacing: "0.12em", lineHeight: 2,
+              animation: "splashBlink 1.1s step-end infinite",
+              textShadow: "0 0 16px rgba(255,255,255,0.4)"
+            }}>
+              ▶ PRESS START ◀
+            </div>
+            <div style={{
+              fontFamily: "'Press Start 2P',monospace", fontSize: "clamp(0.4rem,1vw,0.55rem)",
+              color: "#64748b", marginTop: "0.7rem", letterSpacing: "0.1em"
+            }}>
+              CLICK OR TAP ANYWHERE
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mute toggle — always visible once past splash */}
+      {phase !== "splash" && (
+        <button
+          onClick={toggleMute}
+          title={muted ? "Unmute" : "Mute"}
+          style={{
+            position: "fixed", bottom: 18, right: 18, zIndex: 9999,
+            background: "#1a1a2e", border: `3px solid ${muted ? "#64748b" : "#facc15"}`,
+            borderRadius: 8, padding: "0.45rem 0.7rem",
+            boxShadow: `3px 3px 0 ${muted ? "#64748b" : "#facc15"}`,
+            cursor: "pointer", transition: "all 0.2s",
+            fontFamily: "'Press Start 2P',monospace", fontSize: "0.85rem",
+            lineHeight: 1, color: muted ? "#64748b" : "#facc15",
+          }}
+        >
+          {muted ? "🔇" : "🔊"}
+        </button>
+      )}
+
+      {phase === "loading" && <LoadingScreen onDone={handleLoadDone} onAudioStop={() => {/* keep playing */ }} />}
       <Background />
 
       <div style={{ position: "relative", zIndex: 2, minHeight: "100vh", opacity: visible ? 1 : 0, transition: "opacity 0.65s ease" }}>
