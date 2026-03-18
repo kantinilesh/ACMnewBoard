@@ -767,7 +767,7 @@ export default function Home() {
   // main    → full page visible
 
   const [muted, setMuted] = useState(false);
-  const { startAudio, stopAudio, setMute } = useLoaderAudio();
+  const { startAudio, setMute } = useLoaderAudio();
 
   // Called when user presses PRESS START
   const handleSplashClick = () => {
